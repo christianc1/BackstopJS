@@ -1,5 +1,5 @@
-var mockery = require('mockery');
-var assert = require('assert');
+const mockery = require('mockery');
+const assert = require('assert');
 
 describe('the runner', function () {
   before(function () {
@@ -7,7 +7,7 @@ describe('the runner', function () {
       return { command, args };
     });
     mockery.registerMock('./command/', function (command, config) {
-      return Promise.resolve({ command: command, config: config });
+      return Promise.resolve({ command, config });
     });
     mockery.enable({ warnOnUnregistered: false });
   });

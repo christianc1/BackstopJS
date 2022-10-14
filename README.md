@@ -6,6 +6,8 @@
 **BackstopJS automates visual regression testing of your responsive web UI by comparing DOM screenshots over time.**
 
 ## News
+**Backstop 6.0.1 -- now with Playwright engine!**   Many thanks to our friend @FrostyShosty who came out of nowhere and made it happen!
+
 **EmberJS users** -- check out our ember-backstop test helper! https://github.com/garris/ember-backstop
 
 **Want to learn how to Backstop from a pro?** Check out [visual regression testing with BackstopJS on udemy.com](https://www.udemy.com/course/visual-regression-testing-with-backstopjs/) by [Walmyr Filho](https://www.udemy.com/user/walmyr/)
@@ -24,7 +26,7 @@
 - Integrated Docker rendering -- to eliminate cross-platform rendering shenanigans
 - CLI reports
 - Render tests with **Chrome Headless**
-- Simulate user interactions with **Puppeteer** scripts
+- Simulate user interactions with **Playwright** or **Puppeteer** scripts
 - JUnit reports
 - Plays nice with CI and source control
 - Run globally or locally as a standalone package app or `require('backstopjs')` right into your node app
@@ -106,7 +108,7 @@ Pass a `--config=<configFilePathStr>` argument to test using a different config 
 
 **JS based config file**
 
-You may use a javascript based config file to allow connents in your config. Be sure to _export your config object as a node module_.
+You may use a javascript based config file to allow comments in your config. Be sure to _export your config object as a node module_.
 
 Example: Create a backstop.config.js
 
@@ -175,15 +177,16 @@ url                      // [required] The url of your app state
 referenceUrl             // Specify a different state or environment when creating reference.
 readyEvent               // Wait until this string has been logged to the console.
 readySelector            // Wait until this selector exists before continuing.
+readyTimeout             // Timeout for readyEvent and readySelector (default: 30000ms)
 delay                    // Wait for x milliseconds
 hideSelectors            // Array of selectors set to visibility: hidden
 removeSelectors          // Array of selectors set to display: none
 onReadyScript            // After the above conditions are met -- use this script to modify UI state prior to screen shots e.g. hovers, clicks etc.
 keyPressSelectors        // Takes array of selector and string values -- simulates multiple sequential keypress interactions.
 hoverSelector            // Move the pointer over the specified DOM element prior to screen shot.
-hoverSelectors           // *Puppeteer only* takes array of selectors -- simulates multiple sequential hover interactions.
+hoverSelectors           // *Playwright and Puppeteer only* takes array of selectors -- simulates multiple sequential hover interactions.
 clickSelector            // Click the specified DOM element prior to screen shot.
-clickSelectors           // *Puppeteer only* takes array of selectors -- simulates multiple sequential click interactions.
+clickSelectors           // *Playwright and Puppeteer only* takes array of selectors -- simulates multiple sequential click interactions.
 postInteractionWait      // Wait for a selector after interacting with hoverSelector or clickSelector (optionally accepts wait time in ms. Ideal for use with a click or hover element transition. available with default onReadyScript)
 scrollToSelector         // Scrolls the specified DOM element into view prior to screen shot (available with default onReadyScript)
 selectors                // Array of selectors to capture. Defaults to document if omitted. Use "viewport" to capture the viewport size. See Targeting elements in the next section for more info...
@@ -192,6 +195,7 @@ misMatchThreshold        // Percentage of different pixels allowed to pass test
 requireSameDimensions    // If set to true -- any change in selector size will trigger a test failure.
 viewports                // An array of screen size objects your DOM will be tested against. This configuration will override the viewports property assigned at the config root.
 ```
+<!-- archiveReport            // If set to true -- all test reports will be archived(copied) (in `reports` folder)  -->
 
 
 ### Testing click and hover interactions
@@ -204,7 +208,7 @@ The above would tell BackstopJS to wait for your app to generate an element with
 
 You can use these properties independent of each other to easily test various click and or hover states in your app.  These are obviously simple scenarios -- if you have more complex needs then this example should serve as a pretty good starting point create your own onReady scripts.
 
-NOTE: Puppeteer version optionally takes `clickSelectors` & `hoverSelectors` as arrays of selectors...
+NOTE: Playwright and Puppeteer versions optionally take `clickSelectors` & `hoverSelectors` as arrays of selectors...
 ```js
 clickSelectors: [".my-hamburger-menu",".my-hamburger-item"],
 hoverSelectors: [".my-nav-menu-item",".my-nav-menu-dropdown-item"],
@@ -212,7 +216,7 @@ hoverSelectors: [".my-nav-menu-item",".my-nav-menu-dropdown-item"],
 
 ### Key Press interactions
 BackstopJS ships with an onReady script that allows user to key press on selectors...
-NOTE: Supports Puppeteer and takes arrays of selectors and key press values.
+NOTE: Supports both Playwright and Puppeteer and takes arrays of selectors and key press values.
 
 ```json
 scenarios: [
@@ -382,6 +386,14 @@ There may also be elements which need to be completely removed during testing. F
 ]
 ```
 
+### Capturing Browser Console Logs
+
+Sometimes you need a little more information to debug misbehavior. If that information is in the browser console logs, it won't appear in a screenshot. To capture the bowser console logs along with the screenshots, set `scenarioLogsInReports`. ( _Note: In order to view the logs, you will have to serve the reports from an HTTP server. See _Serving Reports_ below._)
+
+```json
+"scenarioLogsInReports": true
+```
+
 ### Changing test sensitivity
 `"misMatchThreshold"` (percentage 0.00%-100.00%) will change the amount of difference BackstopJS will tolerate before marking a test screenshot as "failed".  The default setting is `0.1`, this may need to be adjusted based on the kinds of testing you're doing.
 
@@ -481,7 +493,7 @@ module.exports = async (page, scenario, vp) => {
 
 #### Setting the base path for custom onBefore and onReady scripts
 
-By default the base path is a folder called `engine_scripts` inside your BackstopJS installation directory. You can override this by setting the `paths.scripts` property in your `backstop.json` file to point to somewhere in your project directory (recommended).
+By default, the base path is a folder called `engine_scripts` inside your BackstopJS installation directory. You can override this by setting the `paths.scripts` property in your `backstop.json` file to point to somewhere in your project directory (recommended).
 
 ```json
 "paths": {
@@ -494,11 +506,11 @@ By default the base path is a folder called `engine_scripts` inside your Backsto
 onBefore(page, scenario, viewport, isReference, Engine, config)
 
 ```
-engine:      browser page object
+page:      browser page object
 scenario:    currently running scenario config
 viewport:    viewport info
 isReference: whether scenario contains reference URL property
-Engine:      Static class reference (Puppeteer)
+Engine:      Static class reference (Puppeteer/Playwright)
 config:      the whole config object
 ```
 
@@ -548,6 +560,16 @@ You may customize the testsuite name and/or a report file (xunit.xml) path to yo
 },
 ```
 
+### Interactive Web Reporting
+
+![Approve Scenarios Web Report](http://garris.github.io/BackstopJS/assets/approve_feature_hilite_sm.png)
+
+Backstop web reports support *approving scenarios* and *viewing browser logs* generated by each scenario. To enable these features you will need to run the backstop remote HTTP service in another terminal window...
+
+```js
+BACKSTOP_REMOTE_HTTP_PORT=3000 backstop remote --config=<your config>
+```
+
 ### BackstopJS and CLI return values
 Pro Tip: When run on the command line, the BackstopJS process will return a 0 if tests were successful and a 1 if anything failed. So you always have the flexibility of branching way up high in your CLI if needed -- e.g....
 
@@ -572,24 +594,45 @@ By default, BackstopJS saves generated resources into the `backstop_data` direct
     "engine_scripts": "backstop_data/engine_scripts",
     "html_report": "backstop_data/html_report",
     "json_report": "backstop_data/json_report",
-    "ci_report": "backstop_data/ci_report"
+    "ci_report": "backstop_data/ci_report",
   }
   ...
 ```
+<!--     "reports_archive": "backstop_data/reports", -->
 
 ### Changing the rendering engine
-Puppeteer is currently the default value and will be installed by default.
+Both Puppeteer and Playwright are installed by default, though the default configuration is set to Puppeteer.
 
 #### Chrome-Headless (The latest webkit library)
 To use chrome headless you can currently use _puppeteer_ (https://github.com/GoogleChrome/puppeteer).
-
 
 ```json
 "engine": "puppeteer"
 ```
 
-### Setting Puppeteer option flags
-Backstop sets two defaults for Puppeteer:
+#### Playwright
+To use firefox or webkit, you can currently use _playwright_ (https://github.com/microsoft/playwright).
+
+Be sure to also switch the onBefore and onReady scripts to the Playwright defaults.  Playwright supports setting `engineOptions.browser` to `chromium`, `firefox`, or `webkit`.
+
+The [storageState](https://playwright.dev/docs/api/class-browsercontext#browser-context-storage-state) config property is supported via the `engineOptions` object in backstop config. This sets cookies _and_ localStorage variables in the Playwright engine before tests are run. Very useful taking screenshots of pages that require authentication.
+
+```json
+  ...
+  "onBeforeScript": "playwright/onBefore.js",
+  "onReadyScript": "playwright/onReady.js",
+  ...
+  "engine": "playwright"
+  ...
+  "engineOptions": {
+    "browser": "chromium",
+    "storageState": "/path/to/cookies-and-local-storage-file.json"
+  }
+  ...
+```
+
+### Setting Puppeteer and Playwright option flags
+Backstop sets two defaults for both Puppeteer and Playwright:
 
 ```json
 ignoreHTTPSErrors: true,
@@ -604,8 +647,9 @@ You can add more settings (or override the defaults) with the engineOptions prop
   "args": ["--no-sandbox", "--disable-setuid-sandbox"]
 }
 ```
-
-More info here: [Puppeteer on github](https://github.com/GoogleChrome/puppeteer).
+More info here:
+  * [Puppeteer on github](https://github.com/GoogleChrome/puppeteer).
+  * [Playwright on github](https://github.com/microsoft/playwright).
 
 ### Using Docker for testing across different environments
 We've found that different environments can render the same webpage in slightly different ways -- in particular with text. E.G. see the text in this example rendering slightly differently between Linux and Mac...
@@ -632,13 +676,17 @@ const backstop = require('backstopjs');
 backstop('test', {docker: true});
 ```
 
-The above flag will cause BackstopJS to hit your Docker local client, spin up the BackstopJS container at https://hub.docker.com/r/backstopjs/backstopjs/ and execute your test.
+The above flag will cause BackstopJS to hit your Docker local client, spin up a BackstopJS container from https://hub.docker.com/r/backstopjs/backstopjs/ and execute your test. By default, Backstop will attemt to use a Docker image with the same version number specified in your `package.js`.
+
+
+#### Changing the default Docker command
 
 If the default docker command or image does not work for you, you can customize the command to run BackstopJS with Docker by changing the `dockerCommandTemplate` config option. The default is:
 
 ```sh
 "dockerCommandTemplate": "docker run --rm -it --mount type=bind,source=\"{cwd}\",target=/src backstopjs/backstopjs:{version} {backstopCommand} {args}"
 ```
+
 
 *Tip: to run BackstopJS in Docker in an environment where the output is piped (e.g. CI server or an IDE's output window), remove the -t parameter (change the default to "docker run --rm -i --mount...)*
 
@@ -816,6 +864,8 @@ By specifying `resembleOutputOptions` in your backstop.json file you can modify 
 
 Instead of calling resemble`s ignoreAntialiasing(), you may set it as a property in the config. (See [example](examples/simpleReactApp/backstop.json))
 
+Per default, Backstop uses Resemble's misMatchPercentage value. However, this value only detects mismatches above 0.01%. If you need more precision and want to use a `misMatchThreshold` below `0.01` (e.g. for large screenshots or small changes), you can set `usePreciseMatching` in the `resembleOutputOptions`. (See [example](examples/simpleReactApp/backstop.json))
+
 ```json
 "resembleOutputOptions": {
   "errorColor": {
@@ -892,6 +942,17 @@ Here's some suggestions if you want to work on the HTML report locally...
 - 👆 NOTE: As a convenience, `npm run build-and-copy-report-bundle` copies your newly built React bundle into `test/configs/backstop_data/html_report/` so you can then test your changes by simply refreshing your report in chrome.
 
 
+
+### Docker development
+Want to make sure your changes work with the `--docker` option? You can rebuild your local docker image from your current BackstopJS source.  From your BackstopJS root...
+```sh
+npm run build-docker
+```
+
+If you have access to Docker Hub @backstop/backstop, then this command will push a new public BackstopJS docker image with the current version tag...
+```sh
+npm run push-docker
+```
 
 ### SMOKE & FEATURE TESTS
 See the next section for running the SMOKE TEST -- Please make sure this is working before submitting any PR's.  Thanks!
