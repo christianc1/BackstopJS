@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer');
-const chromium = require('@sparticuz/chrome-aws-lambda');
+const chromium = require('@sparticuz/chromium');
 
 const fs = require('./fs');
 const path = require('path');
@@ -77,10 +77,10 @@ async function processScenarioView (scenario, variantOrScenarioLabelSafe, scenar
     config.engineOptions
   );
 
-  const browser = await chromium.puppeteer.launch({
+  const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath,
+    executablePath: await chromium.executablePath(),
     headless: chromium.headless,
     ...puppeteerArgs,
   });
